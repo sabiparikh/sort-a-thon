@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🎯 Sort-a-thon</title>
+
+<style>
+body {
+  margin:0;
+  font-family:Arial;
+  text-align:center;
+  background:#cfe8ff;
+}
+
+.container {
+  max-width:1000px;
+  margin:auto;
+  padding:20px;
+  position:relative;
+}
+
+#customBtn {
+  position:absolute;
+  top:10px;
+  right:10px;
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  background:#ffd6e0;
+  cursor:pointer;
+  z-index:10;
+}
+
+/* PANEL FIXED */
+#panel {
+  display:none;
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  background:white;
+  padding:20px;
+  border-radius:12px;
+  box-shadow:0 0 20px rgba(0,0,0,0.3);
+  z-index:9999;
+}
+
+.bar {
+  background:#ddd;
+  height:30px;
+  border-radius:10px;
+  margin:10px;
+  overflow:hidden;
+}
+
+.fill {
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#4facfe,#00f2fe);
+  color:white;
+  font-weight:bold;
+  line-height:30px;
+}
+
+.bucket {
+  border:2px dashed #333;
+  border-radius:10px;
+  width:220px;
+  min-height:150px;
+  display:inline-block;
+  margin:10px;
+  background:#fff;
+}
+
+.item {
+  background:white;
+  padding:8px;
+  margin:5px;
+  border-radius:8px;
+  border:1px solid black;
+  cursor:grab;
+}
+
+.correct {
+  background:#999;
+  color:white;
+}
+
+#restartBtn {
+  display:none;
+  padding:12px;
+  background:#ffd166;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+.overlay {
+  display:none;
+  position:fixed;
+  width:100%;
+  height:100%;
+  top:0;
+  left:0;
+  background:rgba(0,0,0,0.3);
+  z-index:999;
+}
+</style>
+</head>
+
+<body>
+
+<div class="overlay" id="overlay"></div>
+
+<button id="customBtn">⚙ Customize</button>
+
+<div id="panel">
+<h3>Customize Game</h3>
+
+<label>Robot 1 Speed</label><br>
+<input type="range" id="speed1" min="1" max="10" value="3"><br><br>
+
+<label>Robot 2 Speed</label><br>
+<input type="range" id="speed2" min="1" max="10" value="4"><br><br>
+
+<input type="text" id="newBucket" placeholder="New bucket name"><br><br>
+<button onclick="addBucket()">➕ Add Bucket</button><br><br>
+
+<button onclick="closePanel()">✅ Save & Close</button>
+</div>
+
+<div class="container">
+<h1>🎯 Sort-a-thon</h1>
+
+<div class="bar">🤖 Robot 1 <div id="r1" class="fill">0%</div></div>
+<div class="bar">🤖 Robot 2 <div id="r2" class="fill">0%</div></div>
+<div class="bar">🧑 You <div id="you" class="fill">0%</div></div>
+
+<h2 id="question"></h2>
+
+<div id="items"></div>
+<div id="buckets"></div>
+
+<h3 id="message"></h3>
+
+<button id="restartBtn">🔄 Play Again</button>
+</div>
+
+<script>
+
+// SIMPLE DATA (works fully — you can expand later)
+const levels=[[
+{q:"Sort the following animals into the groups",
+items:["Snakes","Crocodiles","Frogs","Newts","Lizards","Salamanders"],
+buckets:["Reptiles","Amphibians"],
+answers:{
+"Snakes":"Reptiles","Crocodiles":"Reptiles","Lizards":"Reptiles",
+"Frogs":"Amphibians","Newts":"Amphibians","Salamanders":"Amphibians"}}
+]];
+
+let dragged=null,gameOver=false;
+let robotSpeed1=3,robotSpeed2=4;
+let totalItems=0,correctCount=0;
+
+// START
+function startGame(){
+gameOver=false;
+correctCount=0;
+
+totalItems=levels[0][0].items.length;
+
+["you","r1","r2"].forEach(id=>{
+let el=document.getElementById(id);
+el.style.width="0%";
+el.innerText="0%";
+});
+
+document.getElementById("message").innerText="";
+document.getElementById("restartBtn").style.display="none";
+
+loadQ();
+}
+
+// LOAD
+function loadQ(){
+let q=levels[0][0];
+
+let items=document.getElementById("items");
+let buckets=document.getElementById("buckets");
+
+items.innerHTML="";
+buckets.innerHTML="";
+
+q.items.forEach(i=>{
+let d=document.createElement("div");
+d.className="item";
+d.innerText=i;
+d.draggable=true;
+d.ondragstart=()=>dragged=d;
+items.appendChild(d);
+});
+
+q.buckets.forEach(b=>createBucket(b));
+}
+
+// CREATE BUCKET
+function createBucket(name){
+let div=document.createElement("div");
+div.className="bucket";
+div.innerHTML="<b>"+name+"</b>";
+
+div.ondragover=e=>e.preventDefault();
+div.ondrop=()=>dropItem(name,div);
+
+document.getElementById("buckets").appendChild(div);
+}
+
+// DROP
+function dropItem(bucket,div){
+if(!dragged||gameOver)return;
+
+let q=levels[0][0];
+let val=dragged.innerText;
+
+if(q.answers[val]===bucket){
+dragged.classList.add("correct");
+div.appendChild(dragged);
+
+correctCount++;
+let percent=(correctCount/totalItems)*100;
+
+let you=document.getElementById("you");
+you.style.width=percent+"%";
+you.innerText=Math.floor(percent)+"%";
+
+}else{
+endGame("❌ Wrong!");
+}
+
+dragged=null;
+}
+
+// ROBOTS
+setInterval(()=>{
+if(gameOver)return;
+
+["r1","r2"].forEach((id,i)=>{
+let el=document.getElementById(id);
+let speed=i?robotSpeed2:robotSpeed1;
+
+let next=(parseFloat(el.style.width)||0)+speed;
+el.style.width=next+"%";
+el.innerText=Math.floor(next)+"%";
+
+if(next>=100) endGame("🤖 Robots Win!");
+});
+},1200);
+
+// END
+function endGame(msg){
+gameOver=true;
+document.getElementById("message").innerText=msg;
+document.getElementById("restartBtn").style.display="block";
+}
+
+// PANEL OPEN
+document.getElementById("customBtn").onclick=()=>{
+document.getElementById("panel").style.display="block";
+document.getElementById("overlay").style.display="block";
+};
+
+// PANEL CLOSE + APPLY SETTINGS
+function closePanel(){
+robotSpeed1=Number(document.getElementById("speed1").value);
+robotSpeed2=Number(document.getElementById("speed2").value);
+
+document.getElementById("panel").style.display="none";
+document.getElementById("overlay").style.display="none";
+}
+
+// ADD BUCKET
+function addBucket(){
+let name=document.getElementById("newBucket").value.trim();
+if(name){
+createBucket(name);
+document.getElementById("newBucket").value="";
+}
+}
+
+// RESTART
+document.getElementById("restartBtn").onclick=startGame;
+
+startGame();
+
+</script>
+
+</body>
+</html>
