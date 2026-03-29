@@ -3,121 +3,82 @@
 <head>
 <meta charset="UTF-8">
 <title>Sort-a-thon</title>
-
 <style>
-body{margin:0;font-family:Arial;background:#dff4ff;text-align:center}
-.top{display:flex;justify-content:space-between;padding:10px}
-button{padding:8px 14px;border:none;border-radius:10px;font-size:16px;cursor:pointer}
-.big{font-size:22px;padding:10px 18px}
-#options{display:flex;flex-wrap:wrap;justify-content:center;margin-top:10px}
-.option{background:white;border:2px solid #777;padding:10px;margin:8px;border-radius:12px;width:130px}
-.grey{background:#ccc}
-.bucket{display:inline-block;width:230px;min-height:140px;border:3px dashed #777;background:white;margin:10px;border-radius:14px;padding:5px}
-.progress{width:80%;height:24px;background:#eee;border-radius:20px;margin:auto;overflow:hidden}
-.fill{height:100%;width:0%}
-#r1{background:#ff7b7b} #r2{background:#ffd166} #player{background:#6ee7b7}
-#custom{position:fixed;right:20px;top:70px;width:320px;background:white;border:4px solid black;border-radius:12px;padding:10px;display:none}
-canvas{position:fixed;top:0;left:0;pointer-events:none}
+body{font-family:Arial;background:#cfe9ff;text-align:center}
+h1{font-size:48px;margin:10px}
+.container{display:flex;justify-content:center;gap:40px;margin-top:10px}
+.bucket{width:240px;min-height:180px;border:3px dashed #333;border-radius:15px;padding:10px;background:#fff}
+.option{display:inline-block;margin:6px;padding:8px 12px;background:#fff;border:2px solid #333;border-radius:10px;cursor:grab;font-weight:bold}
+.grey{background:#bbb !important}
+.progressWrap{width:70%;margin:5px auto}
+.bar{height:22px;background:#eee;border-radius:20px;overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#ff8,#f88,#8ff);transition:width .4s}
+button{font-size:22px;margin:10px;padding:10px 20px;border-radius:10px}
+#skull{font-size:80px;color:red}
+canvas{position:fixed;pointer-events:none;top:0;left:0}
 </style>
 </head>
-
 <body>
-<div class="top">
-<div>
-<button onclick="paused=true">Pause</button>
-<button onclick="paused=false">Continue</button>
-</div>
-<h1 id="levelTitle">LEVEL 1</h1>
-<button class="big" onclick="toggleCustom()">Customize</button>
+<button onclick="pauseGame()">Pause Game</button>
+<button onclick="resumeGame()">Continue Game</button>
+<h1 id="levelTitle">Level 1</h1>
+
+<div class="progressWrap">
+<b>Robot 1</b><div class="bar"><div id="r1" class="fill"></div></div>
+<b>Robot 2</b><div class="bar"><div id="r2" class="fill"></div></div>
+<b>YOU</b><div class="bar"><div id="you" class="fill"></div></div>
 </div>
 
+<div class="container">
+<div id="bucketA" class="bucket"></div>
+<div id="bucketB" class="bucket"></div>
+</div>
+<div id="options"></div>
+<div id="skull"></div>
+<button onclick="startGame()">Play Again</button>
 <canvas id="fx"></canvas>
 
-<h3>Robot 1</h3><div class="progress"><div id="r1" class="fill"></div></div>
-<h3>Robot 2</h3><div class="progress"><div id="r2" class="fill"></div></div>
-<h3>You</h3><div class="progress"><div id="player" class="fill"></div></div>
-
-<h2 id="question"></h2>
-<div id="options"></div>
-<div id="buckets"></div>
-<button class="big" onclick="location.reload()">PLAY AGAIN</button>
-
-<div id="custom">
-<button style="background:red;color:white" onclick="toggleCustom()">✖</button>
-<h3>Customization</h3>
-Robot Speed<input type="range" id="speed" min="0.6" max="1.6" step="0.1" value="1"><br><br>
-Change Level<select id="levelSelect"><option>1</option><option>2</option><option>3</option></select>
-<button onclick="applyLevel()">Apply Level Change</button>
-<hr>
-Custom Question<input id="cq"><br>
-Options (comma separated)<input id="co"><br>
-Buckets (comma separated)<input id="cb"><br>
-<button onclick="addCustomQ()">Apply</button>
-<button onclick="toggleCustom()">Cancel</button>
-</div>
-
 <script>
-let paused=false,level=1,currentSet=[],qIndex=0,remaining=0,seenMulti={}
-const data=[
-{l:1,q:"Sort the following animals",i:["Snakes","Crocodiles","Frogs","Newts","Lizards","Salamanders"],b:["Reptiles","Amphibians"],a:{Reptiles:["Snakes","Crocodiles","Lizards"],Amphibians:["Frogs","Newts","Salamanders"]}},
-{l:1,q:"Sort the Numbers",i:["3","6","6","9","3000","15111","18","18","3000"],b:["Multiples of 2","Multiples of 3"],a:{"Multiples of 2":["6","6","3000","18","18","3000"],"Multiples of 3":["3","6","6","9","3000","15111","18","18","3000"]}},
-{l:1,q:"Sort the birds",i:["Myna","Pond Heron","Indian Robin","Red Whiskered Bulbul","Cattle Egret","Common Iora"],b:["Small birds","Large birds"],a:{"Small birds":["Myna","Indian Robin","Red Whiskered Bulbul","Common Iora"],"Large birds":["Pond Heron","Cattle Egret"]}},
-{l:2,q:"Sort the plants",i:["Chrysanthemum","Ashoka","Tomato","Mango","Money plant","Aloevera"],b:["Flowering plants","Non - flowering plants","Fruit plants"],a:{"Flowering plants":["Chrysanthemum"],"Non - flowering plants":["Money plant","Aloevera"],"Fruit plants":["Tomato","Mango"]}},
-{l:2,q:"Sort the games",i:["Chess","Battleship","Cricket","Javelin throwing","Scrabble","Badminton","Football"],b:["Indoor games","Outdoor games"],a:{"Indoor games":["Chess","Battleship","Scrabble"],"Outdoor games":["Cricket","Javelin throwing","Badminton","Football"]}},
-{l:2,q:"Sort the numbers",i:["2","4","3","5","7","21","18","11"],b:["Prime Numbers","Composite Numbers"],a:{"Prime Numbers":["2","3","5","7","11"],"Composite Numbers":["4","21","18"]}},
-{l:3,q:"Sort the material",i:["Rubber","Plastic","Paper","Wood","Metal","Fibre","Paper Mache"],b:["Strong Material","Weak Material"],a:{"Strong Material":["Metal","Wood","Plastic"],"Weak Material":["Paper","Rubber","Fibre","Paper Mache"]}},
-{l:3,q:"Sort the letters",i:["A","C","E","I","O","U","D","F","G","V","W"],b:["Vowels","Consonants"],a:{Vowels:["A","E","I","O","U"],Consonants:["C","D","F","G","V","W"]}},
-{l:3,q:"Sort the items",i:["Laptop","Phone","Paper bird","Pillow","Show pieces"],b:["Useful things","Un - useful things"],a:{"Useful things":["Laptop","Phone","Pillow"],"Un - useful things":["Paper bird","Show pieces"]}}
+// QUESTIONS WITH DUPLICATES PRESERVED
+const levels=[
+[
+{A:"Reptiles",B:"Amphibians",
+options:["Snakes","Crocodiles","Frogs","Newts","Lizards","Salamanders"],
+ans:{Snakes:["A"],Crocodiles:["A"],Frogs:["B"],Newts:["B"],Lizards:["A"],Salamanders:["B"]}},
+
+{A:"Multiples of 2",B:"Multiples of 3",
+options:["3","6","6","9","3000","15111","18","18","3000"],
+ans:{3:["B"],6:["A","B"],9:["B"],3000:["A","B"],15111:["B"],18:["A","B"]}},
+
+{A:"Short birds",B:"Tall birds",
+options:["Myna","Pond Heron","Indian Robin","Red Whiskered Bulbul","Cattle Egret","Common Iora"],
+ans:{Myna:["A"],"Pond Heron":["B"],"Indian Robin":["A"],"Red Whiskered Bulbul":["A"],"Cattle Egret":["B"],"Common Iora":["A"]}}
 ]
+];
 
-function shuffle(a){return a.sort(()=>Math.random()-0.5)}
-function startLevel(){levelTitle.innerText="LEVEL "+level;currentSet=shuffle(data.filter(x=>x.l==level));qIndex=0;resetBars();loadQ()}
-function loadQ(){
-seenMulti={}
-let q=currentSet[qIndex];remaining=q.i.length;question.innerText=q.q;options.innerHTML="";buckets.innerHTML=""
-shuffle([...q.i]).forEach(txt=>{
-let d=document.createElement("div");d.className="option";d.innerText=txt;d.draggable=true
-d.ondragstart=e=>e.dataTransfer.setData("t",txt);options.appendChild(d)
-})
-q.b.forEach(bucket=>{
-let b=document.createElement("div");b.className="bucket";b.innerHTML="<b>"+bucket+"</b>"
-b.ondragover=e=>e.preventDefault()
-b.ondrop=e=>{
-if(paused)return
-let item=e.dataTransfer.getData("t")
-let validBuckets=Object.keys(q.a).filter(k=>q.a[k].includes(item))
-if(validBuckets.length>1 && !seenMulti[item]){alert("Hmmm, don’t you think that the option goes in more than one place?");seenMulti[item]=true}
-if(validBuckets.includes(bucket)){
-confetti()
-let el=[...document.querySelectorAll(".option")].find(x=>x.innerText==item&&!x.classList.contains("grey"))
-if(!el)return
-el.classList.add("grey");el.draggable=false
-b.innerHTML+="<div>"+item+"</div>"
-remaining--;player.style.width=(parseFloat(player.style.width||0)+5)+"%"
-if(remaining==0)nextQ()
-}else alert("Wrong! Game Over"),location.reload()
-}
-buckets.appendChild(b)
-})
-}
-function nextQ(){qIndex++;if(qIndex>=currentSet.length){level++;if(level>3){alert("🏆 Champion!");location.reload()}else startLevel()}else loadQ()}
-function resetBars(){r1.style.width=r2.style.width=player.style.width="0%"}
-setInterval(()=>{if(paused)return;r1.style.width=(parseFloat(r1.style.width||0)+Math.random()*2*speed.value)+"%";r2.style.width=(parseFloat(r2.style.width||0)+Math.random()*1.8*speed.value)+"%"},1000)
-function toggleCustom(){custom.style.display=custom.style.display=="block"?"none":"block"}
-function applyLevel(){level=parseInt(levelSelect.value);startLevel()}
-function addCustomQ(){data.unshift({l:level,q:cq.value,i:co.value.split(","),b:cb.value.split(","),a:{}});toggleCustom();startLevel()}
+let level=0,qIndex=0,paused=false;
+let robot1=0,robot2=0,totalLevelItems=0,placedItems=0;
 
-/* Confetti */
-const c=document.getElementById("fx"),ctx=c.getContext("2d");c.width=innerWidth;c.height=innerHeight
-function confetti(){
-for(let i=0;i<150;i++){
-ctx.beginPath();ctx.fillStyle=`hsl(${Math.random()*360},80%,60%)`
-ctx.arc(Math.random()*c.width,Math.random()*c.height,Math.random()*6+2,0,6.28);ctx.fill()
-ctx.fillText("★",Math.random()*c.width,Math.random()*c.height)
-}
-setTimeout(()=>ctx.clearRect(0,0,c.width,c.height),800)
-}
-startLevel()
+function countLevelItems(){totalLevelItems=0;levels[level].forEach(q=>totalLevelItems+=q.options.length)}
+function shuffle(arr){return arr.sort(()=>Math.random()-0.5)}
+
+function startGame(){level=0;qIndex=0;robot1=robot2=0;placedItems=0;countLevelItems();nextQuestion();robotsMove();updateBars();}
+
+function nextQuestion(){levelTitle.innerText="Level "+(level+1);let data=levels[level][qIndex];bucketA.innerHTML="<b>"+data.A+"</b>";bucketB.innerHTML="<b>"+data.B+"</b>";options.innerHTML="";shuffle([...data.options]).forEach((k,i)=>{let d=document.createElement('div');d.className='option';d.draggable=true;d.innerText=k;d.dataset.id=i;d.ondragstart=e=>e.dataTransfer.setData('text',i);options.appendChild(d);});}
+
+function dropHandler(bucket,e){if(paused)return;let id=e.dataTransfer.getData('text');let el=[...document.querySelectorAll('.option')].find(o=>o.dataset.id==id);if(!el||el.classList.contains('grey'))return;let item=el.innerText;let data=levels[level][qIndex].ans[item];let letter=bucket==='bucketA'?'A':'B';if(!data.includes(letter)){gameOver();return;}el.classList.add('grey');document.getElementById(bucket).appendChild(el);placedItems++;updateBars();confetti();
+if([...document.querySelectorAll('.option')].every(o=>o.classList.contains('grey'))){qIndex++;if(qIndex<levels[level].length)nextQuestion();}}
+
+['bucketA','bucketB'].forEach(id=>{window[id].ondragover=e=>e.preventDefault();window[id].ondrop=e=>dropHandler(id,e);});
+function robotsMove(){setInterval(()=>{if(paused)return;robot1+=Math.random()*2.5+1;robot2+=Math.random()*2.5+1;updateBars();if(robot1>=100||robot2>=100){gameOver();paused=true;}},600);} 
+function updateBars(){r1.style.width=Math.min(robot1,100)+'%';r2.style.width=Math.min(robot2,100)+'%';you.style.width=(placedItems/totalLevelItems*100)+'%';}
+function gameOver(){skull.innerHTML='☠️ GAME OVER';paused=true;}
+function pauseGame(){paused=true}function resumeGame(){paused=false}
+
+let c=document.getElementById('fx'),ctx=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;let pieces=[];function confetti(){for(let i=0;i<80;i++)pieces.push({x:Math.random()*c.width,y:0,s:Math.random()*6+4,v:Math.random()*3+2});}
+setInterval(()=>{ctx.clearRect(0,0,c.width,c.height);pieces.forEach(p=>{p.y+=p.v;ctx.fillStyle='hsl('+Math.random()*360+',80%,60%)';ctx.fillRect(p.x,p.y,p.s,p.s)});},30);
+
+startGame();
 </script>
 </body>
 </html>
