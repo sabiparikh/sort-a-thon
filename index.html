@@ -29,11 +29,11 @@ canvas{position:fixed;pointer-events:none;top:0;left:0}
 <b>YOU</b><div class="bar"><div id="you" class="fill"></div></div>
 </div>
 
+<div id="options"></div>
 <div class="container">
 <div id="bucketA" class="bucket"></div>
 <div id="bucketB" class="bucket"></div>
 </div>
-<div id="options"></div>
 <div id="skull"></div>
 <button onclick="startGame()">Play Again</button>
 <canvas id="fx"></canvas>
@@ -56,13 +56,13 @@ ans:{Myna:["A"],"Pond Heron":["B"],"Indian Robin":["A"],"Red Whiskered Bulbul":[
 ]
 ];
 
-let level=0,qIndex=0,paused=false;
+let level=0,qIndex=0,paused=false;let robotTimer=null;
 let robot1=0,robot2=0,totalLevelItems=0,placedItems=0;
 
 function countLevelItems(){totalLevelItems=0;levels[level].forEach(q=>totalLevelItems+=q.options.length)}
 function shuffle(arr){return arr.sort(()=>Math.random()-0.5)}
 
-function startGame(){level=0;qIndex=0;robot1=robot2=0;placedItems=0;countLevelItems();nextQuestion();robotsMove();updateBars();}
+function startGame(){paused=false;skull.innerHTML='';level=0;qIndex=0;robot1=robot2=0;placedItems=0;countLevelItems();nextQuestion();updateBars();if(robotTimer)clearInterval(robotTimer);robotsMove();}
 
 function nextQuestion(){levelTitle.innerText="Level "+(level+1);let data=levels[level][qIndex];bucketA.innerHTML="<b>"+data.A+"</b>";bucketB.innerHTML="<b>"+data.B+"</b>";options.innerHTML="";shuffle([...data.options]).forEach((k,i)=>{let d=document.createElement('div');d.className='option';d.draggable=true;d.innerText=k;d.dataset.id=i;d.ondragstart=e=>e.dataTransfer.setData('text',i);options.appendChild(d);});}
 
@@ -70,7 +70,7 @@ function dropHandler(bucket,e){if(paused)return;let id=e.dataTransfer.getData('t
 if([...document.querySelectorAll('.option')].every(o=>o.classList.contains('grey'))){qIndex++;if(qIndex<levels[level].length)nextQuestion();}}
 
 ['bucketA','bucketB'].forEach(id=>{window[id].ondragover=e=>e.preventDefault();window[id].ondrop=e=>dropHandler(id,e);});
-function robotsMove(){setInterval(()=>{if(paused)return;robot1+=Math.random()*2.5+1;robot2+=Math.random()*2.5+1;updateBars();if(robot1>=100||robot2>=100){gameOver();paused=true;}},600);} 
+function robotsMove(){robotTimer=setInterval(()=>{if(paused)return;robot1+=Math.random()*2.5+1;robot2+=Math.random()*2.5+1;updateBars();if(robot1>=100||robot2>=100){gameOver();paused=true;}},600);} 
 function updateBars(){r1.style.width=Math.min(robot1,100)+'%';r2.style.width=Math.min(robot2,100)+'%';you.style.width=(placedItems/totalLevelItems*100)+'%';}
 function gameOver(){skull.innerHTML='☠️ GAME OVER';paused=true;}
 function pauseGame(){paused=true}function resumeGame(){paused=false}
