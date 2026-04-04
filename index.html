@@ -4,81 +4,113 @@
 <meta charset="UTF-8">
 <title>Sort-a-thon</title>
 <style>
-body{font-family:Arial;background:#cfe9ff;text-align:center}
-h1{font-size:48px;margin:10px}
-.container{display:flex;justify-content:center;gap:40px;margin-top:10px}
-.bucket{width:240px;min-height:180px;border:3px dashed #333;border-radius:15px;padding:10px;background:#fff}
-.option{display:inline-block;margin:6px;padding:8px 12px;background:#fff;border:2px solid #333;border-radius:10px;cursor:grab;font-weight:bold}
-.grey{background:#bbb !important}
-.progressWrap{width:70%;margin:5px auto}
-.bar{height:22px;background:#eee;border-radius:20px;overflow:hidden}
-.fill{height:100%;width:0;background:linear-gradient(90deg,#ff8,#f88,#8ff);transition:width .4s}
-button{font-size:22px;margin:10px;padding:10px 20px;border-radius:10px}
-#skull{font-size:80px;color:red}
-canvas{position:fixed;pointer-events:none;top:0;left:0}
+body{background:#000;color:#fff;font-family:Arial;text-align:center}
+.bucket, .option{border:2px solid #fff;padding:10px;margin:10px;display:inline-block;min-width:150px}
+.option{cursor:grab}
+.grey{background:#777}
+#gameOver{position:fixed;top:0;left:-100%;width:100%;height:100%;background:#000;color:red;font-size:60px;display:flex;justify-content:center;align-items:center;transition:1s;pointer-events:none;z-index:1}
+
+.bar{height:100%;width:0;background:lime}
+button{font-size:22px;margin:10px;position:relative;z-index:2}
 </style>
 </head>
 <body>
-<button onclick="pauseGame()">Pause Game</button>
-<button onclick="resumeGame()">Continue Game</button>
 <h1 id="levelTitle">Level 1</h1>
 
-<div class="progressWrap">
-<b>Robot 1</b><div class="bar"><div id="r1" class="fill"></div></div>
-<b>Robot 2</b><div class="bar"><div id="r2" class="fill"></div></div>
-<b>YOU</b><div class="bar"><div id="you" class="fill"></div></div>
-</div>
-
+<div id="question"></div>
 <div id="options"></div>
-<div class="container">
-<div id="bucketA" class="bucket"></div>
-<div id="bucketB" class="bucket"></div>
-</div>
-<div id="skull"></div>
-<button onclick="startGame()">Play Again</button>
-<canvas id="fx"></canvas>
+<div id="buckets"></div>
+<br>
+
+
+<br>
+<button onclick="resetGame()">Play Again</button>
+<div id="gameOver">GAME OVER</div>
 
 <script>
-// QUESTIONS WITH DUPLICATES PRESERVED
-const levels=[
-[
-{A:"Reptiles",B:"Amphibians",
-options:["Snakes","Crocodiles","Frogs","Newts","Lizards","Salamanders"],
-ans:{Snakes:["A"],Crocodiles:["A"],Frogs:["B"],Newts:["B"],Lizards:["A"],Salamanders:["B"]}},
+var levels=[{questions:[{q:"Sort the following animals into the groups - Animals: Snakes Crocodiles Frogs Newts Lizards Salamanders",buckets:{Reptiles:["Snakes","Crocodiles","Lizards"],Amphibians:["Frogs","Newts","Salamanders"]}},{q:"Sort the Numbers in these buckets - Numbers: 3 6 6 9 3000 15111 18 18 3000",buckets:{"Multiples of 2":["6","6","18","18","3000","3000"],"Multiples of 3":["3","6","6","9","18","18","3000","3000","15111"]}},{q:"Sort the birds in the buckets Birds: Myna Pond Heron Indian Robin Red Whiskered Bulbul Cattle Egret Common Iora",buckets:{"Short birds":["Myna","Indian Robin","Red Whiskered Bulbul","Common Iora"],"Tall birds":["Pond Heron","Cattle Egret"]}}]},{questions:[{q:"Sort the plants into the buckets Plants: Chrysanthemum Ashoka Tomato Mango Money plant Aloevera",buckets:{Trees:["Ashoka","Mango"],Plants:["Chrysanthemum","Tomato","Money plant","Aloevera"]}},{q:"Sort the following games / activities in a venn diagram Games: Chess Battleship Cricket Javelin throwing Scrabble Badminton Football",buckets:{"Indoor games":["Chess","Battleship","Scrabble"],"Indoor & Outdoor":["Badminton"],"Outdoor games":["Cricket","Football","Javelin throwing"]}},{q:"Sort the following numbers - 2 4 3 5 7 21 18 11",buckets:{"Prime Numbers":["2","3","5","7","11"],"Composite Numbers":["4","21","18"]}}]},{questions:[{q:"Find the group it belongs to",buckets:{"Living Things":["Dog","Plant","Apple","Bird","Baby sister","Black Kite"],Vehicles:["Airplane","Car","bus","Auto"],"None of the above":["Robot","Eraser","Notebook","Pen","Laptop","Shovel","Bottle","the Sun","The moon"]}},{q:"Find the correct rule",buckets:{Flying:["Airplane","bird","helicopter","jet","sunbird"]}},{q:"Find the group it belongs to",buckets:{"Man - made things":["Bowl","Robot","Laptop"],"Natural things":["Turtle","Mountain","Birds","Amphibians"],Places:["Farm","Hospital","School","Mango grove"]}}]}];
 
-{A:"Multiples of 2",B:"Multiples of 3",
-options:["3","6","6","9","3000","15111","18","18","3000"],
-ans:{3:["B"],6:["A","B"],9:["B"],3000:["A","B"],15111:["B"],18:["A","B"]}},
+var level=0,qIndex=0,placements={},usedMulti={};
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+for(var i=0;i<levels.length;i++){shuffle(levels[i].questions);} 
 
-{A:"Short birds",B:"Tall birds",
-options:["Myna","Pond Heron","Indian Robin","Red Whiskered Bulbul","Cattle Egret","Common Iora"],
-ans:{Myna:["A"],"Pond Heron":["B"],"Indian Robin":["A"],"Red Whiskered Bulbul":["A"],"Cattle Egret":["B"],"Common Iora":["A"]}}
-]
-];
+function render(){
+ if(level>=levels.length){document.body.innerHTML='<h1>You Win</h1>';return;}
+ var q=levels[level].questions[qIndex];
+ document.getElementById('levelTitle').innerHTML='Level '+(level+1);
+ document.getElementById('question').innerHTML=q.q;
 
-let level=0,qIndex=0,paused=false;let robotTimer=null;
-let robot1=0,robot2=0,totalLevelItems=0,placedItems=0;
+ var opts=[];
+ for(var k in q.buckets){opts=opts.concat(q.buckets[k]);}
+ opts=[...new Set(opts)];
+ var optDiv=document.getElementById('options');
+ optDiv.innerHTML='';
+ opts.forEach(function(o){
+   var d=document.createElement('div');
+   d.className='option';
+   d.draggable=true;
+   d.innerHTML=o;
+   d.ondragstart=function(e){e.dataTransfer.setData('text',o);};
+   optDiv.appendChild(d);
+ });
 
-function countLevelItems(){totalLevelItems=0;levels[level].forEach(q=>totalLevelItems+=q.options.length)}
-function shuffle(arr){return arr.sort(()=>Math.random()-0.5)}
+ var buckDiv=document.getElementById('buckets');
+ buckDiv.innerHTML='';
+ for(var b in q.buckets){
+   (function(bucket){
+     var d=document.createElement('div');
+     d.className='bucket';
+     d.innerHTML=bucket;
+     d.ondragover=function(e){e.preventDefault();};
+     d.ondrop=function(e){
+       var val=e.dataTransfer.getData('text');
+       var correctBuckets=[];
+       for(var key in q.buckets){if(q.buckets[key].indexOf(val)>-1)correctBuckets.push(key);} 
+       if(correctBuckets.indexOf(bucket)===-1){gameOver();return;} 
+       if(correctBuckets.length>1 && !usedMulti[val]){alert('Hmmm, dont you think that the option goes in more than one place?');usedMulti[val]=true;} 
+       if(!placements[val]) placements[val]={};
+       placements[val][bucket]=true;
+       var el=[].slice.call(document.querySelectorAll('.option')).find(function(x){return x.innerHTML===val;});
+       if(el) el.classList.add('grey');
+       d.innerHTML+='<div>'+val+'</div>';
+       checkComplete();
+     };
+     buckDiv.appendChild(d);
+   })(b);
+ }
+}
 
-function startGame(){paused=false;skull.innerHTML='';level=0;qIndex=0;robot1=robot2=0;placedItems=0;countLevelItems();nextQuestion();updateBars();if(robotTimer)clearInterval(robotTimer);robotsMove();}
+function checkComplete(){
+ var q=levels[level].questions[qIndex];
+ for(var key in q.buckets){
+   for(var i=0;i<q.buckets[key].length;i++){
+     var v=q.buckets[key][i];
+     var needed=0, placed=0;
+     for(var k in q.buckets){if(q.buckets[k].indexOf(v)>-1)needed++;}
+     if(placements[v]) placed=Object.keys(placements[v]).length;
+     if(placed<needed) return;
+   }
+ }
+ placements={};
+ qIndex++;
+ if(qIndex>=levels[level].questions.length){level++;qIndex=0;}
+ render();
+}
 
-function nextQuestion(){levelTitle.innerText="Level "+(level+1);let data=levels[level][qIndex];bucketA.innerHTML="<b>"+data.A+"</b>";bucketB.innerHTML="<b>"+data.B+"</b>";options.innerHTML="";shuffle([...data.options]).forEach((k,i)=>{let d=document.createElement('div');d.className='option';d.draggable=true;d.innerText=k;d.dataset.id=i;d.ondragstart=e=>e.dataTransfer.setData('text',i);options.appendChild(d);});}
+function gameOver(){
+ document.getElementById('gameOver').style.left='0';
+ var ops=document.querySelectorAll('.option');
+ ops.forEach(function(o){o.draggable=false;});
+}
 
-function dropHandler(bucket,e){if(paused)return;let id=e.dataTransfer.getData('text');let el=[...document.querySelectorAll('.option')].find(o=>o.dataset.id==id);if(!el||el.classList.contains('grey'))return;let item=el.innerText;let data=levels[level][qIndex].ans[item];let letter=bucket==='bucketA'?'A':'B';if(!data.includes(letter)){gameOver();return;}el.classList.add('grey');document.getElementById(bucket).appendChild(el);placedItems++;updateBars();confetti();
-if([...document.querySelectorAll('.option')].every(o=>o.classList.contains('grey'))){qIndex++;if(qIndex<levels[level].length)nextQuestion();}}
+function resetGame(){
+ document.getElementById('gameOver').style.left='-100%';
+ level=0; qIndex=0; placements={}; usedMulti={};
+ for(var i=0;i<levels.length;i++){shuffle(levels[i].questions);} 
+ render();
+}
 
-['bucketA','bucketB'].forEach(id=>{window[id].ondragover=e=>e.preventDefault();window[id].ondrop=e=>dropHandler(id,e);});
-function robotsMove(){robotTimer=setInterval(()=>{if(paused)return;robot1+=Math.random()*2.5+1;robot2+=Math.random()*2.5+1;updateBars();if(robot1>=100||robot2>=100){gameOver();paused=true;}},600);} 
-function updateBars(){r1.style.width=Math.min(robot1,100)+'%';r2.style.width=Math.min(robot2,100)+'%';you.style.width=(placedItems/totalLevelItems*100)+'%';}
-function gameOver(){skull.innerHTML='☠️ GAME OVER';paused=true;}
-function pauseGame(){paused=true}function resumeGame(){paused=false}
-
-let c=document.getElementById('fx'),ctx=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;let pieces=[];function confetti(){for(let i=0;i<80;i++)pieces.push({x:Math.random()*c.width,y:0,s:Math.random()*6+4,v:Math.random()*3+2});}
-setInterval(()=>{ctx.clearRect(0,0,c.width,c.height);pieces.forEach(p=>{p.y+=p.v;ctx.fillStyle='hsl('+Math.random()*360+',80%,60%)';ctx.fillRect(p.x,p.y,p.s,p.s)});},30);
-
-startGame();
+render();
 </script>
 </body>
 </html>
